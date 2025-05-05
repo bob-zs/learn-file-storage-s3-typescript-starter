@@ -1,7 +1,5 @@
-import { randomBytes } from "node:crypto";
-
 import { getBearerToken, validateJWT } from "../auth";
-import { getAssetDiskPath, getAssetURL, mediaTypeToExt } from "./assets";
+import { getAssetDiskPath, getAssetURL, createFileName } from "./assets";
 import { respondWithJSON } from "./json";
 import { getVideo, updateVideo } from "../db/videos";
 import type { ApiConfig } from "../config";
@@ -32,7 +30,6 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
   }
 
   const MAX_UPLOAD_SIZE = 10 << 20;
-
   if (file.size > MAX_UPLOAD_SIZE) {
     throw new BadRequestError(
       `Thumbnail file exceeds the maximum allowed size of 10MB`,
@@ -49,16 +46,12 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
     );
   }
 
-  const ext = mediaTypeToExt(mediaType);
-
-  const buffer = randomBytes(32);
-  const filename = `${buffer.toString("base64url")}${ext}`;
+  const filename = createFileName(mediaType);
 
   const assetDiskPath = getAssetDiskPath(cfg, filename);
   await Bun.write(assetDiskPath, file);
 
-  const urlPath = getAssetURL(cfg, filename);
-  video.thumbnailURL = urlPath;
+  video.thumbnailURL = getAssetURL(cfg, filename);
   updateVideo(cfg.db, video);
 
   return respondWithJSON(200, null);

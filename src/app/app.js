@@ -43,10 +43,10 @@ async function createVideoDraft() {
       throw new Error(`Failed to create video draft: ${data.error}`);
     }
 
-    const videoID = data.id;
-    if (videoID) {
+    const videoId = data.id;
+    if (videoId) {
       await getVideos();
-      await videoStateHandler(videoID);
+      await videoStateHandler(videoId);
     }
   } catch (error) {
     alert(`Error: ${error.message}`);
@@ -123,7 +123,7 @@ function setUploadButtonState(uploading, selector) {
   uploadBtn.disabled = false;
 }
 
-async function uploadThumbnail(videoID) {
+async function uploadThumbnail(videoId) {
   const thumbnailFile = document.getElementById("thumbnail").files[0];
   if (!thumbnailFile) return;
 
@@ -134,7 +134,7 @@ async function uploadThumbnail(videoID) {
   setUploadButtonState(true, uploadBtnSelector);
 
   try {
-    const res = await fetch(`/api/thumbnail_upload/${videoID}`, {
+    const res = await fetch(`/api/thumbnail_upload/${videoId}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -147,8 +147,7 @@ async function uploadThumbnail(videoID) {
     }
 
     await res.json();
-    console.log("Thumbnail uploaded!");
-    await getVideo(videoID);
+    await getVideo(videoId);
   } catch (error) {
     alert(`Error: ${error.message}`);
   }
@@ -156,7 +155,7 @@ async function uploadThumbnail(videoID) {
   setUploadButtonState(false, uploadBtnSelector);
 }
 
-async function uploadVideoFile(videoID) {
+async function uploadVideoFile(videoId) {
   const videoFile = document.getElementById("video-file").files[0];
   if (!videoFile) return;
 
@@ -167,7 +166,7 @@ async function uploadVideoFile(videoID) {
   setUploadButtonState(true, uploadBtnSelector);
 
   try {
-    const res = await fetch(`/api/video_upload/${videoID}`, {
+    const res = await fetch(`/api/video_upload/${videoId}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -180,7 +179,7 @@ async function uploadVideoFile(videoID) {
     }
 
     console.log("Video uploaded!");
-    await getVideo(videoID);
+    await getVideo(videoId);
   } catch (error) {
     alert(`Error: ${error.message}`);
   }
@@ -209,7 +208,10 @@ async function getVideos() {
     for (const video of videos) {
       const listItem = document.createElement("li");
       listItem.textContent = video.title;
-      listItem.onclick = () => videoStateHandler(video.id);
+      listItem.onclick = () => {
+        console.log("Video Selected:", video.id); // Added logging
+        videoStateHandler(video.id);
+      };
       videoList.appendChild(listItem);
     }
   } catch (error) {
@@ -220,22 +222,22 @@ async function getVideos() {
 function createVideoStateHandler() {
   let currentVideoID = null;
 
-  return async function handleVideoClick(videoID) {
-    if (currentVideoID !== videoID) {
-      currentVideoID = videoID;
+  return async function handleVideoClick(videoId) {
+    if (currentVideoID !== videoId) {
+      currentVideoID = videoId;
 
       // Reset file input values
       document.getElementById("thumbnail").value = "";
       document.getElementById("video-file").value = "";
 
-      await getVideo(videoID);
+      await getVideo(videoId);
     }
   };
 }
 
-async function getVideo(videoID) {
+async function getVideo(videoId) {
   try {
-    const res = await fetch(`/api/videos/${videoID}`, {
+    const res = await fetch(`/api/videos/${videoId}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -313,7 +315,6 @@ document
     event.preventDefault();
     await uploadThumbnail(currentVideo?.id);
   });
-
 document
   .getElementById("video-file-upload-form")
   .addEventListener("submit", async (event) => {

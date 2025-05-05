@@ -14,5 +14,9 @@
   "dependencies": {
     "bcrypt": "^5.1.1",
     "jsonwebtoken": "^9.0.2"
+  },
+  "scripts": {
+    "watch": "bun --watch --watch-clear=false src/index.ts",
+    "debug": "bun --inspect src/index.ts"
   }
 }
