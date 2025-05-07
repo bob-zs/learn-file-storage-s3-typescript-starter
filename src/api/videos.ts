@@ -1,5 +1,10 @@
 import { getBearerToken, validateJWT } from "../auth";
-import { getAssetDiskPath, createFileName, getS3URL } from "./assets";
+import {
+  getAssetDiskPath,
+  createFileName,
+  getS3URL,
+  getVideoAspectRatio,
+} from "./assets";
 import { respondWithJSON } from "./json";
 import { getVideo, updateVideo } from "../db/videos";
 import { uploadVideoToS3 } from "../s3";
@@ -39,13 +44,16 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
     throw new BadRequestError("Invalid file type. Only supporting mp4");
   }
 
-  const filename = createFileName(file.type);
-  const assetDiskPath = getAssetDiskPath(cfg, filename);
+  const diskFilename = createFileName(file.type);
+  const assetDiskPath = getAssetDiskPath(cfg, diskFilename);
   await Bun.write(assetDiskPath, file);
+
+  const aspectRatio = await getVideoAspectRatio(assetDiskPath);
+  const fileS3Key = `${aspectRatio}/${diskFilename}`;
 
   const s3FileExists = await uploadVideoToS3(
     cfg,
-    filename,
+    fileS3Key,
     assetDiskPath,
     file.type,
   );
@@ -53,7 +61,7 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
     throw new NotFoundError("file not stored in s3.");
   }
 
-  video.videoURL = getS3URL(cfg, filename);
+  video.videoURL = getS3URL(cfg, fileS3Key);
   updateVideo(cfg.db, video);
 
   await Bun.file(assetDiskPath).delete();

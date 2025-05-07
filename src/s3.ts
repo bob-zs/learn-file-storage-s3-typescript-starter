@@ -5,7 +5,7 @@ export async function uploadVideoToS3(
   key: string,
   filePath: string,
   contentType: string,
-) {
+): Promise<boolean> {
   const s3file = cfg.s3Client.file(key, { bucket: cfg.s3Bucket });
   const videoFile = Bun.file(filePath);
   await s3file.write(videoFile, { type: contentType });
