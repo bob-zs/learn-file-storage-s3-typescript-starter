@@ -4,6 +4,7 @@ import {
   createFileName,
   getS3URL,
   getVideoAspectRatio,
+  processVideoForFastStart,
 } from "./assets";
 import { respondWithJSON } from "./json";
 import { getVideo, updateVideo } from "../db/videos";
@@ -44,17 +45,23 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
     throw new BadRequestError("Invalid file type. Only supporting mp4");
   }
 
-  const diskFilename = createFileName(file.type);
-  const assetDiskPath = getAssetDiskPath(cfg, diskFilename);
+  const filename = createFileName(file.type);
+  const assetDiskPath = getAssetDiskPath(cfg, filename);
   await Bun.write(assetDiskPath, file);
 
-  const aspectRatio = await getVideoAspectRatio(assetDiskPath);
-  const fileS3Key = `${aspectRatio}/${diskFilename}`;
+  const processedPath = await processVideoForFastStart(assetDiskPath);
+  const proccessedFileExists = await Bun.file(processedPath).exists();
+  if (!proccessedFileExists) {
+    throw new Error("Processed video file not found.");
+  }
+
+  const aspectRatio = await getVideoAspectRatio(processedPath);
+  const fileS3Key = `${aspectRatio}/${filename}`;
 
   const s3FileExists = await uploadVideoToS3(
     cfg,
     fileS3Key,
-    assetDiskPath,
+    processedPath,
     file.type,
   );
   if (!s3FileExists) {
@@ -68,6 +75,14 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   const isDiskFileExist = await Bun.file(assetDiskPath).exists();
   if (isDiskFileExist) {
     throw new Error("Unable to delete temporary video file from disk.");
+  }
+
+  await Bun.file(processedPath).delete();
+  const isProcessedFileExist = await Bun.file(processedPath).exists();
+  if (isProcessedFileExist) {
+    throw new Error(
+      "Unable to delete temporary processed video file from disk.",
+    );
   }
 
   return respondWithJSON(200, null);

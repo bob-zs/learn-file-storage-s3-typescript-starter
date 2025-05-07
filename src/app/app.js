@@ -99,7 +99,6 @@ async function signup() {
       const data = await res.json();
       throw new Error(`Failed to create user: ${data.error}`);
     }
-    console.log("User created!");
     await login();
   } catch (error) {
     alert(`Error: ${error.message}`);
@@ -177,9 +176,6 @@ async function uploadVideoFile(videoId) {
       const data = await res.json();
       throw new Error(`Failed to upload video file. Error: ${data.error}`);
     }
-
-    console.log("Video uploaded!");
-    await getVideo(videoId);
   } catch (error) {
     alert(`Error: ${error.message}`);
   }
@@ -209,7 +205,6 @@ async function getVideos() {
       const listItem = document.createElement("li");
       listItem.textContent = video.title;
       listItem.onclick = () => {
-        console.log("Video Selected:", video.id); // Added logging
         videoStateHandler(video.id);
       };
       videoList.appendChild(listItem);
