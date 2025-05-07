@@ -4,6 +4,8 @@ import path from "path";
 
 import type { ApiConfig } from "../config";
 import { readableStreamToText } from "bun";
+import type { Path } from "typescript";
+import { spawn } from "node:child_process";
 
 export function ensureAssetsDir(cfg: ApiConfig) {
   if (!existsSync(cfg.assetsRoot)) {
@@ -38,24 +40,11 @@ export function createFileName(mediaType: string): string {
 }
 
 export async function getVideoAspectRatio(filePath: string): Promise<string> {
-  const subProcess = Bun.spawn(
-    [
-      "ffprobe",
-      "-v",
-      "error",
-      "-select_streams",
-      "v:0",
-      "-show_entries",
-      "stream=width,height",
-      "-of",
-      "json",
-      filePath,
-    ],
-    {
-      stdout: "pipe",
-      stderr: "pipe",
-    },
-  );
+  const command = `ffprobe -v error -print_format json -show_streams ${filePath}`;
+  const subProcess = Bun.spawn([...command.split(" ")], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
 
   const outputText = await readableStreamToText(subProcess.stdout);
   const errorText = await readableStreamToText(subProcess.stderr);
@@ -70,7 +59,7 @@ export async function getVideoAspectRatio(filePath: string): Promise<string> {
     throw new Error("No video stream found");
   }
 
-  const { width, height } = mediaInfo.stream[0];
+  const { width, height } = mediaInfo.streams[0];
 
   const ratio = width / height;
   let aspectRatio = "other";
@@ -81,4 +70,41 @@ export async function getVideoAspectRatio(filePath: string): Promise<string> {
   }
 
   return aspectRatio;
+}
+
+export async function processVideoForFastStart(
+  inputPath: string,
+): Promise<string> {
+  let outputFilePath = inputPath + ".processed";
+  const fastStartProcess = Bun.spawn(
+    [
+      "ffmpeg",
+      "-i",
+      inputPath,
+      "-movflags",
+      "faststart",
+      "-map_metadata",
+      "0",
+      "-codec",
+      "copy",
+      "-f",
+      "mp4",
+      outputFilePath,
+    ],
+    {
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
+
+  const outputText = await readableStreamToText(fastStartProcess.stdout);
+  const errorText = await readableStreamToText(fastStartProcess.stderr);
+
+  const exitCode = await fastStartProcess.exited;
+  if (exitCode !== 0) {
+    console.error({ errorText });
+    throw new Error(`ffmpeg error: ${errorText}`);
+  }
+  // console.log("processVideoForFastStart", { outputText });
+  return outputFilePath;
 }
