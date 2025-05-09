@@ -2,13 +2,12 @@ import { getBearerToken, validateJWT } from "../auth";
 import {
   getAssetDiskPath,
   createFileName,
-  getS3URL,
   getVideoAspectRatio,
   processVideoForFastStart,
 } from "./assets";
 import { respondWithJSON } from "./json";
-import { getVideo, updateVideo } from "../db/videos";
-import { uploadVideoToS3 } from "../s3";
+import { getVideo, updateVideo, type Video } from "../db/videos";
+import { uploadVideoToS3, generatePresignedURL } from "../s3";
 import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
@@ -22,7 +21,7 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   const token = getBearerToken(req.headers);
   const userID = validateJWT(token, cfg.jwtSecret);
 
-  const video = getVideo(cfg.db, videoId);
+  const video: Video | undefined = getVideo(cfg.db, videoId);
   if (!video) {
     throw new NotFoundError("Couldn't find video");
   }
@@ -68,7 +67,7 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
     throw new NotFoundError("file not stored in s3.");
   }
 
-  video.videoURL = getS3URL(cfg, fileS3Key);
+  video.videoURL = fileS3Key;
   updateVideo(cfg.db, video);
 
   await Bun.file(assetDiskPath).delete();
@@ -86,4 +85,12 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   }
 
   return respondWithJSON(200, null);
+}
+
+export async function dbVideoToSignedVideo(cfg: ApiConfig, video: Video) {
+  if (!video.videoURL) {
+    return video;
+  }
+  video.videoURL = await generatePresignedURL(cfg, video.videoURL, 5 * 60);
+  return video;
 }
