@@ -7,7 +7,7 @@ import {
 } from "./assets";
 import { respondWithJSON } from "./json";
 import { getVideo, updateVideo, type Video } from "../db/videos";
-import { uploadVideoToS3, generatePresignedURL } from "../s3";
+import { uploadVideoToS3 } from "../s3";
 import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
@@ -67,7 +67,7 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
     throw new NotFoundError("file not stored in s3.");
   }
 
-  video.videoURL = fileS3Key;
+  video.videoURL = `${cfg.s3CfDistribution}/${fileS3Key}`;
   updateVideo(cfg.db, video);
 
   await Bun.file(assetDiskPath).delete();
@@ -85,12 +85,4 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   }
 
   return respondWithJSON(200, null);
-}
-
-export async function dbVideoToSignedVideo(cfg: ApiConfig, video: Video) {
-  if (!video.videoURL) {
-    return video;
-  }
-  video.videoURL = await generatePresignedURL(cfg, video.videoURL, 5 * 60);
-  return video;
 }
